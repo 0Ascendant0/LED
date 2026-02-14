@@ -4,8 +4,12 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Client, TravelContract, ClientPayments, Traveler, BookedSuppliers, SupplierPayments, Suppliers, TravelRequirements
 from .serializers import ClientSerializer, TravelContractSerializer, ClientPaymentsSerializer, TravelerSerializer, BookedSuppliersSerializer, SupplierPaymentsSerializer, SuppliersSerializer, TravelRequirementsSerializer
+from .permissions import IsAdminOrReadOnly, IsAdmin
+
 
 class ClientListAPIView(APIView):
+
+    permission_classes = [IsAdminOrReadOnly]
 
     def get(self, request):
         clients = Client.objects.all()
@@ -21,6 +25,8 @@ class ClientListAPIView(APIView):
     
 class ClientDetailAPIView(APIView):
 
+    permission_classes = [IsAdminOrReadOnly]
+    
     def get(self, pk):
         client = Client.objects.get(pk=pk)
         serializer = ClientSerializer(client)
@@ -40,7 +46,9 @@ class ClientDetailAPIView(APIView):
         return Response(status = status.HTTP_204_NO_CONTENT)
     
 class TravelContractAPIView(APIView):
+    permission_classes = [IsAdminOrReadOnly]
     def get(self, pk):
+        
         contract = TravelContract.objects.get(pk=pk)
         serializer = TravelContractSerializer(contract)
         return Response(serializer.data)
@@ -66,6 +74,7 @@ class TravelContractAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
     
 class ClientPaymentsAPIView(APIView):
+    permission_classes = [IsAdminOrReadOnly]
     def get(self, pk):
         payment = ClientPayments.objects.get(pk=pk)
         serializer = ClientPaymentsSerializer(payment)
@@ -92,6 +101,7 @@ class ClientPaymentsAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
     
 class TravelerAPIView(APIView):
+    permission_classes = [IsAdminOrReadOnly]
     def get(self, pk):
         payment = Traveler.objects.get(pk=pk)
         serializer = TravelerSerializer(payment)
@@ -117,34 +127,37 @@ class TravelerAPIView(APIView):
         payment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-class BookedSuppliersAPIView(APIView):
-    def get(self, pk):
-        payment = BookedSuppliers.objects.get(pk=pk)
-        serializer = BookedSuppliersSerializer(payment)
-        return Response(serializer.data)
+# class BookedSuppliersAPIView(APIView):
+#     permission_classes = [IsAdminOrReadOnly]
+#     def get(self, pk):
+#         payment = BookedSuppliers.objects.get(pk=pk)
+#         serializer = BookedSuppliersSerializer(payment)
+#         return Response(serializer.data)
     
-    def post(self, request):
-        serializer = BookedSuppliersSerializer(data= request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#     def post(self, request):
+#         serializer = BookedSuppliersSerializer(data= request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def put(self, request):
-        payment = BookedSuppliers.objects.get(pk=pk)
-        serializer = BookedSuppliersSerializer(payment, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#     def put(self, request):
+#         payment = BookedSuppliers.objects.get(pk=pk)
+#         serializer = BookedSuppliersSerializer(payment, data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def delete(self, pk):
-        payment = BookedSuppliers.objects.get(pk=pk)
-        payment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+#     def delete(self, pk):
+#         payment = BookedSuppliers.objects.get(pk=pk)
+#         payment.delete()
+#         return Response(status=status.HTTP_204_NO_CONTENT)
     
 
 class SupplierPaymentsAPIView(APIView):
+    permission_classes = [IsAdminOrReadOnly]
+   
     def get(self, pk):
         payment = SupplierPayments.objects.get(pk=pk)
         serializer = SupplierPaymentsSerializer(payment)
@@ -171,6 +184,8 @@ class SupplierPaymentsAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
     
 class SuppliersAPIView(APIView):
+    permission_classes = [IsAdminOrReadOnly]
+    
     def get(self, pk):
         payment = Suppliers.objects.get(pk=pk)
         serializer = SuppliersSerializer(payment)
@@ -198,6 +213,7 @@ class SuppliersAPIView(APIView):
     
 
 class TravelRequirementsAPIView(APIView):
+    permission_classes = [IsAdminOrReadOnly]
     def get(self, pk):
         payment = TravelRequirements.objects.get(pk=pk)
         serializer = TravelRequirementsSerializer(payment)

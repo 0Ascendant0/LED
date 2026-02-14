@@ -31,10 +31,10 @@ class SuppliersSerializer(serializers.ModelSerializer):
         model = Suppliers
         fields = '__all__'
 
-class BookedSuppliersSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BookedSuppliers
-        fields = '__all__'
+# class BookedSuppliersSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = BookedSuppliers
+#         fields = '__all__'
 
 class ClientPaymentsSerializer(serializers.ModelSerializer):
     class Meta:
