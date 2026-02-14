@@ -237,6 +237,4 @@ class TravelRequirementsAPIView(APIView):
     def delete(self, pk):
         payment = TravelRequirements.objects.get(pk=pk)
         payment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)\
-        
-
+        return Response(status=status.HTTP_204_NO_CONTENT)
