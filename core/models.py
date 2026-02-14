@@ -8,6 +8,8 @@ class CustomUserManager(BaseUserManager):
         if not email:
             raise ValueError('Email must be set!')
         email = self.normalize_email(email)
+        # Keep role and is_admin consistent for legacy schema compatibility.
+        extra_fields.setdefault('is_admin', role == 'admin')
         user = self.model(email = email, role = role, **extra_fields)
         user.set_password(password)
         user.save(using = self._db)
@@ -17,6 +19,7 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('role', 'admin')
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('is_admin', True)
 
         if extra_fields.get('role') != 'admin':
             raise ValueError('Superuser must have role=admin.')
@@ -35,15 +38,21 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique = True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='viewer')
     is_active = models.BooleanField(default=True)
+    is_admin = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     objects = CustomUserManager()
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
 
+    def save(self, *args, **kwargs):
+        if self.role == 'admin':
+            self.is_admin = True
+        super().save(*args, **kwargs)
+
     @property
     def is_staff(self):
-        return self.role == 'admin'
+        return self.is_admin or self.role == 'admin'
     
     def __str__(self):
         return f'{self.email} ({self.role})'
@@ -177,8 +186,8 @@ class BookedActivity(models.Model):
 # Confirm on Refference #
 class SupplierPayments(models.Model):
     # booking = models.ForeignKey(BookedSuppliers, on_delete=models.CASCADE)
-    supplier = models.ForeignKey(Suppliers, on_delete=models.CASCADE)
-    booked_activity = models.ForeignKey(BookedActivity, on_delete=models.CASCADE)
+    supplier = models.ForeignKey(Suppliers, on_delete=models.CASCADE, null=True, blank=True)
+    booked_activity = models.ForeignKey(BookedActivity, on_delete=models.CASCADE, null=True, blank=True)
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2)
     payment_date = models.DateField()
     reference_number = models.CharField(max_length=100)

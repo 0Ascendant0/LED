@@ -68,7 +68,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('amount_paid', models.DecimalField(decimal_places=2, max_digits=12)),
                 ('payment_date', models.DateField()),
-                ('refference_number', models.CharField(max_length=100)),
+                ('reference_number', models.CharField(max_length=100)),
                 ('booking', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='core.bookedsuppliers')),
             ],
         ),
@@ -82,7 +82,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('destination', models.CharField(max_length=255)),
-                ('depature_date', models.DateField()),
+                ('departure_date', models.DateField()),
                 ('return_date', models.DateField()),
                 ('total_package_price', models.DecimalField(decimal_places=2, max_digits=12)),
                 ('final_payment_due_date', models.DateField()),

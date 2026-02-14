@@ -1,245 +1,116 @@
-from django.shortcuts import render
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
+from rest_framework import generics
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import Client, TravelContract, ClientPayments, Traveler, SupplierPayments, Suppliers, TravelRequirements
-from .serializers import ClientSerializer, TravelContractSerializer, ClientPaymentsSerializer, TravelerSerializer, SupplierPaymentsSerializer, SuppliersSerializer, TravelRequirementsSerializer, CustomTokenObtainPairSerializer, CurrentUserSerializer
-from .permissions import IsAdminOrReadOnly, IsAdmin
+from .models import ActivityTemplate, BookedActivity, Client, TravelContract, ClientPayments, Traveler, SupplierPayments, Suppliers, TravelRequirements
+from .serializers import (
+    AdminUserCreateSerializer,
+    AdminUserManageSerializer,
+    ActivityBookedClientsSerializer,
+    ActivityTemplateSerializer,
+    BookedActivitySerializer,
+    ClientSerializer,
+    TravelContractSerializer,
+    ClientPaymentsSerializer,
+    TravelerSerializer,
+    SupplierPaymentsSerializer,
+    SuppliersSerializer,
+    TravelRequirementsSerializer,
+    CustomTokenObtainPairSerializer,
+    CurrentUserSerializer,
+)
+from .permissions import IsAdmin, IsAdminOrReadOnly
 
 
-class ClientListAPIView(APIView):
-
+class ClientListAPIView(generics.ListCreateAPIView):
+    queryset = Client.objects.all()
+    serializer_class = ClientSerializer
     permission_classes = [IsAdminOrReadOnly]
 
-    def get(self, request):
-        clients = Client.objects.all()
-        serializer = ClientSerializer(clients, many = True)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        serializer = ClientSerializer(data = request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-class ClientDetailAPIView(APIView):
 
+class ClientDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Client.objects.all()
+    serializer_class = ClientSerializer
     permission_classes = [IsAdminOrReadOnly]
-    
-    def get(self, pk):
-        client = Client.objects.get(pk=pk)
-        serializer = ClientSerializer(client)
-        return Response(serializer.data)
-    
-    def put(self, request, pk):
-        client = Client.objects.get(pk=pk)
-        serializer = ClientSerializer(client, data = request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status= status.HTTP_201_CREATED)
-        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-    
-    def delete(self, pk):
-        client = Client.objects.get(pk=pk)
-        client.delete()
-        return Response(status = status.HTTP_204_NO_CONTENT)
-    
-class TravelContractAPIView(APIView):
-    permission_classes = [IsAdminOrReadOnly]
-    def get(self, pk):
-        
-        contract = TravelContract.objects.get(pk=pk)
-        serializer = TravelContractSerializer(contract)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        serializer = TravelContractSerializer(data = request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def put(self, request, pk):
-        contract = TravelContract.objects.get(pk=pk)
-        serializer = TravelContractSerializer(contract, data = request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def delete(self, pk):
-        contract = TravelContract.objects.get(pk=pk)
-        contract.delete
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
-class ClientPaymentsAPIView(APIView):
-    permission_classes = [IsAdminOrReadOnly]
-    def get(self, pk):
-        payment = ClientPayments.objects.get(pk=pk)
-        serializer = ClientPaymentsSerializer(payment)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        serializer = ClientPaymentsSerializer(data= request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def put(self, request):
-        payment = ClientPayments.objects.get(pk=pk)
-        serializer = ClientPaymentsSerializer(payment, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def delete(self, pk):
-        payment = ClientPayments.objects.get(pk=pk)
-        payment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
-class TravelerAPIView(APIView):
-    permission_classes = [IsAdminOrReadOnly]
-    def get(self, pk):
-        payment = Traveler.objects.get(pk=pk)
-        serializer = TravelerSerializer(payment)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        serializer = TravelerSerializer(data= request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def put(self, request):
-        payment = Traveler.objects.get(pk=pk)
-        serializer = TravelerSerializer(payment, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def delete(self, pk):
-        payment = Traveler.objects.get(pk=pk)
-        payment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
-# class BookedSuppliersAPIView(APIView):
-#     permission_classes = [IsAdminOrReadOnly]
-#     def get(self, pk):
-#         payment = BookedSuppliers.objects.get(pk=pk)
-#         serializer = BookedSuppliersSerializer(payment)
-#         return Response(serializer.data)
-    
-#     def post(self, request):
-#         serializer = BookedSuppliersSerializer(data= request.data)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-#     def put(self, request):
-#         payment = BookedSuppliers.objects.get(pk=pk)
-#         serializer = BookedSuppliersSerializer(payment, data=request.data)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-#     def delete(self, pk):
-#         payment = BookedSuppliers.objects.get(pk=pk)
-#         payment.delete()
-#         return Response(status=status.HTTP_204_NO_CONTENT)
-    
 
-class SupplierPaymentsAPIView(APIView):
+class TravelContractListAPIView(generics.ListCreateAPIView):
+    queryset = TravelContract.objects.all()
+    serializer_class = TravelContractSerializer
     permission_classes = [IsAdminOrReadOnly]
-   
-    def get(self, pk):
-        payment = SupplierPayments.objects.get(pk=pk)
-        serializer = SupplierPaymentsSerializer(payment)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        serializer = SupplierPaymentsSerializer(data= request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def put(self, request):
-        payment = SupplierPayments.objects.get(pk=pk)
-        serializer = SupplierPaymentsSerializer(payment, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def delete(self, pk):
-        payment = SupplierPayments.objects.get(pk=pk)
-        payment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
-class SuppliersAPIView(APIView):
-    permission_classes = [IsAdminOrReadOnly]
-    
-    def get(self, pk):
-        payment = Suppliers.objects.get(pk=pk)
-        serializer = SuppliersSerializer(payment)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        serializer = SuppliersSerializer(data= request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def put(self, request):
-        payment = Suppliers.objects.get(pk=pk)
-        serializer = SuppliersSerializer(payment, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def delete(self, pk):
-        payment = Suppliers.objects.get(pk=pk)
-        payment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
 
-class TravelRequirementsAPIView(APIView):
+
+class TravelContractDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = TravelContract.objects.all()
+    serializer_class = TravelContractSerializer
     permission_classes = [IsAdminOrReadOnly]
-    def get(self, pk):
-        payment = TravelRequirements.objects.get(pk=pk)
-        serializer = TravelRequirementsSerializer(payment)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        serializer = TravelRequirementsSerializer(data= request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def put(self, request):
-        payment = TravelRequirements.objects.get(pk=pk)
-        serializer = TravelRequirementsSerializer(payment, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def delete(self, pk):
-        payment = TravelRequirements.objects.get(pk=pk)
-        payment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ClientPaymentsListAPIView(generics.ListCreateAPIView):
+    queryset = ClientPayments.objects.all()
+    serializer_class = ClientPaymentsSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class ClientPaymentsDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = ClientPayments.objects.all()
+    serializer_class = ClientPaymentsSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class TravelerListAPIView(generics.ListCreateAPIView):
+    queryset = Traveler.objects.all()
+    serializer_class = TravelerSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class TravelerDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Traveler.objects.all()
+    serializer_class = TravelerSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class SupplierPaymentsListAPIView(generics.ListCreateAPIView):
+    queryset = SupplierPayments.objects.all()
+    serializer_class = SupplierPaymentsSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class SupplierPaymentsDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = SupplierPayments.objects.all()
+    serializer_class = SupplierPaymentsSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class SuppliersListAPIView(generics.ListCreateAPIView):
+    queryset = Suppliers.objects.all()
+    serializer_class = SuppliersSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class SuppliersDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Suppliers.objects.all()
+    serializer_class = SuppliersSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class TravelRequirementsListAPIView(generics.ListCreateAPIView):
+    queryset = TravelRequirements.objects.all()
+    serializer_class = TravelRequirementsSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class TravelRequirementsDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = TravelRequirements.objects.all()
+    serializer_class = TravelRequirementsSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -252,3 +123,92 @@ class CurrentUserAPIView(APIView):
     def get(self, request):
         serializer = CurrentUserSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminUserCreateAPIView(generics.ListCreateAPIView):
+    queryset = get_user_model().objects.all().order_by('-created_at')
+    permission_classes = [IsAdmin]
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return AdminUserCreateSerializer
+        return AdminUserManageSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(
+            {
+                'message': 'User created. Verification email sent.',
+                'user': AdminUserManageSerializer(user).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminUserDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = get_user_model().objects.all()
+    serializer_class = AdminUserManageSerializer
+    permission_classes = [IsAdmin]
+
+    def perform_destroy(self, instance):
+        if instance.id == self.request.user.id:
+            raise ValidationError({'detail': 'You cannot delete your own account.'})
+        super().perform_destroy(instance)
+
+
+class VerifyEmailAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        uid = request.query_params.get('uid')
+        token = request.query_params.get('token')
+
+        if not uid or not token:
+            return Response({'detail': 'Missing verification parameters.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = get_user_model().objects.get(pk=user_id)
+        except Exception:
+            return Response({'detail': 'Invalid verification link.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not default_token_generator.check_token(user, token):
+            return Response({'detail': 'Verification link is invalid or expired.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user.is_active:
+            user.is_active = True
+            user.save(update_fields=['is_active'])
+
+        return Response({'detail': 'Email verified. Account is now active.'}, status=status.HTTP_200_OK)
+
+
+class ActivityBookingsAPIView(generics.ListAPIView):
+    queryset = ActivityTemplate.objects.prefetch_related('bookedactivity_set__contract__client')
+    serializer_class = ActivityBookedClientsSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class ActivityTemplateListAPIView(generics.ListCreateAPIView):
+    queryset = ActivityTemplate.objects.all()
+    serializer_class = ActivityTemplateSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class ActivityTemplateDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = ActivityTemplate.objects.all()
+    serializer_class = ActivityTemplateSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class BookedActivityListAPIView(generics.ListCreateAPIView):
+    queryset = BookedActivity.objects.all()
+    serializer_class = BookedActivitySerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class BookedActivityDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = BookedActivity.objects.all()
+    serializer_class = BookedActivitySerializer
+    permission_classes = [IsAdminOrReadOnly]

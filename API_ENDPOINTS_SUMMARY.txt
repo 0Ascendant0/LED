@@ -1,0 +1,135 @@
+LED Travel and Tours API - Endpoint Summary
+==========================================
+
+Base URL
+- /api/
+
+Auth and Access (current behavior)
+- Default: authenticated users only (JWT/session).
+- Read operations (GET): any authenticated user.
+- Write operations (POST, PUT, PATCH, DELETE): admin role only on business endpoints.
+
+Standard response patterns
+- 200 OK: successful GET/PUT/PATCH.
+- 201 Created: successful POST.
+- 204 No Content: successful DELETE.
+- 400 Bad Request: validation or serializer errors.
+- 401 Unauthorized: missing/invalid token.
+- 403 Forbidden: authenticated but insufficient role.
+- 404 Not Found: object does not exist for detail endpoints.
+
+Authentication Endpoints
+------------------------
+1) POST /api/auth/token/
+- Purpose: login and issue JWT access/refresh tokens.
+- Body: {"email": "user@example.com", "password": "..."}
+- Response (200):
+  {
+    "refresh": "<jwt>",
+    "access": "<jwt>",
+    "user": {"id": "<uuid>", "email": "...", "role": "admin|viewer"}
+  }
+
+2) POST /api/auth/token/refresh/
+- Purpose: issue a new access token from refresh token.
+- Body: {"refresh": "<jwt>"}
+- Response (200): {"access": "<jwt>"}
+
+3) POST /api/auth/token/verify/
+- Purpose: verify token validity.
+- Body: {"token": "<jwt>"}
+- Response (200): {}
+
+4) GET /api/auth/me/
+- Purpose: fetch current authenticated user.
+- Response (200):
+  {"id": "<uuid>", "email": "...", "role": "admin|viewer", "is_active": true, "created_at": "..."}
+
+Business Endpoints
+------------------
+Clients
+- GET /api/clients/ : list clients.
+- POST /api/clients/ : create client.
+- GET /api/clients/<int:pk>/ : retrieve client.
+- PUT/PATCH /api/clients/<int:pk>/ : update client.
+- DELETE /api/clients/<int:pk>/ : delete client.
+- Typical object fields: id, first_name, last_name, phone, email.
+
+Travel Contracts
+- GET /api/travel-contracts/ : list contracts.
+- POST /api/travel-contracts/ : create contract.
+- GET /api/travel-contracts/<uuid:pk>/ : retrieve contract.
+- PUT/PATCH /api/travel-contracts/<uuid:pk>/ : update contract.
+- DELETE /api/travel-contracts/<uuid:pk>/ : delete contract.
+- Typical fields: id, client, destination, departure_date, return_date, total_package_price, final_payment_due_date, contract_signed_date, status.
+
+Client Payments
+- GET /api/client-payments/ : list payments.
+- POST /api/client-payments/ : create payment.
+- GET /api/client-payments/<int:pk>/ : retrieve payment.
+- PUT/PATCH /api/client-payments/<int:pk>/ : update payment.
+- DELETE /api/client-payments/<int:pk>/ : delete payment.
+- Typical fields: id, contract, payment_number, receipt_number, amount_paid, payment_date.
+
+Travelers
+- GET /api/travelers/ : list travelers.
+- POST /api/travelers/ : create traveler.
+- GET /api/travelers/<int:pk>/ : retrieve traveler.
+- PUT/PATCH /api/travelers/<int:pk>/ : update traveler.
+- DELETE /api/travelers/<int:pk>/ : delete traveler.
+- Typical fields: id, contract, first_name, last_name, traveller_type, price.
+
+Supplier Payments
+- GET /api/supplier-payments/ : list supplier payments.
+- POST /api/supplier-payments/ : create supplier payment.
+- GET /api/supplier-payments/<int:pk>/ : retrieve supplier payment.
+- PUT/PATCH /api/supplier-payments/<int:pk>/ : update supplier payment.
+- DELETE /api/supplier-payments/<int:pk>/ : delete supplier payment.
+- Typical fields: id, supplier, booked_activity, amount_paid, payment_date, reference_number.
+
+Suppliers
+- GET /api/suppliers/ : list suppliers.
+- POST /api/suppliers/ : create supplier.
+- GET /api/suppliers/<int:pk>/ : retrieve supplier.
+- PUT/PATCH /api/suppliers/<int:pk>/ : update supplier.
+- DELETE /api/suppliers/<int:pk>/ : delete supplier.
+- Typical fields: id, name, supplier_type, phone, email.
+
+Travel Requirements
+- GET /api/travel-requirements/ : list requirements.
+- POST /api/travel-requirements/ : create requirement.
+- GET /api/travel-requirements/<int:pk>/ : retrieve requirement.
+- PUT/PATCH /api/travel-requirements/<int:pk>/ : update requirement.
+- DELETE /api/travel-requirements/<int:pk>/ : delete requirement.
+- Typical fields: id, contract, requirement_type, is_required, is_submitted.
+
+Activity Bookings Report
+- GET /api/activity-bookings/
+- Purpose: list each activity with clients who booked it.
+- Response (200):
+  [
+    {
+      "id": 1,
+      "name": "Safari Tour",
+      "clients": [
+        {
+          "id": 3,
+          "first_name": "Jane",
+          "last_name": "Doe",
+          "email": "jane@example.com",
+          "phone": "+263..."
+        }
+      ]
+    }
+  ]
+
+
+
+Legacy detail aliases (backward compatibility)
+----------------------------------------------
+- /api/client/<int:pk>/ -> same as /api/clients/<int:pk>/
+- /api/travel_contracts/<uuid:pk>/ -> same as /api/travel-contracts/<uuid:pk>/
+- /api/client_payments/<int:pk>/ -> same as /api/client-payments/<int:pk>/
+- /api/traveler/<int:pk>/ -> same as /api/travelers/<int:pk>/
+- /api/supplier_payments/<int:pk>/ -> same as /api/supplier-payments/<int:pk>/
+- /api/travel_requirements/<int:pk>/ -> same as /api/travel-requirements/<int:pk>/
