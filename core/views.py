@@ -2,8 +2,10 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Client, TravelContract, ClientPayments, Traveler, BookedSuppliers, SupplierPayments, Suppliers, TravelRequirements
-from .serializers import ClientSerializer, TravelContractSerializer, ClientPaymentsSerializer, TravelerSerializer, BookedSuppliersSerializer, SupplierPaymentsSerializer, SuppliersSerializer, TravelRequirementsSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .models import Client, TravelContract, ClientPayments, Traveler, SupplierPayments, Suppliers, TravelRequirements
+from .serializers import ClientSerializer, TravelContractSerializer, ClientPaymentsSerializer, TravelerSerializer, SupplierPaymentsSerializer, SuppliersSerializer, TravelRequirementsSerializer, CustomTokenObtainPairSerializer, CurrentUserSerializer
 from .permissions import IsAdminOrReadOnly, IsAdmin
 
 
@@ -238,3 +240,15 @@ class TravelRequirementsAPIView(APIView):
         payment = TravelRequirements.objects.get(pk=pk)
         payment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
+
+class CurrentUserAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = CurrentUserSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
