@@ -158,9 +158,6 @@ class Command(BaseCommand):
             booked_activity = BookedActivity.objects.create(
                 contract=contract,
                 activity=activities[index % len(activities)],
-                quantity_adult=1,
-                quantity_child=1,
-                quantity_infant=0,
                 total_price=Decimal("0.00"),
             )
 

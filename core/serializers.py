@@ -1,20 +1,17 @@
-from django.conf import settings
-from django.core.mail import send_mail
-from django.contrib.auth.tokens import default_token_generator
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
 from django.contrib.auth import get_user_model
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from decimal import Decimal
 from .models import (
+    AccommodationBooking,
     ActivityTemplate,
+    AirportTransfer,
     BookedActivity,
     Client,
     ClientPayments,
-    SupplierPayments,
-    Suppliers,
+    FlightBooking,
+    
+    
     TravelContract,
     Traveler,
     TravelRequirements,
@@ -25,8 +22,21 @@ class ClientSerializer(serializers.ModelSerializer):
         model = Client
         fields = '__all__'
 
+    def validate(self, attrs):
+        national_id = attrs.get(
+            'national_id_or_passport_number',
+            getattr(self.instance, 'national_id_or_passport_number', None),
+        )
+        cleaned_national_id = (national_id or '').strip()
+        if not cleaned_national_id:
+            raise serializers.ValidationError(
+                {'national_id_or_passport_number': 'National ID/Passport Number is required.'}
+            )
+        attrs['national_id_or_passport_number'] = cleaned_national_id
+        return attrs
+
     def validate_phone(self, value):
-        cleaned = value.strip()
+        cleaned = ''.join(value.split())
         if len(cleaned) < 7 or len(cleaned) > 15:
             raise serializers.ValidationError('Phone number must be between 7 and 15 characters.')
         return cleaned
@@ -35,6 +45,7 @@ class TravelContractSerializer(serializers.ModelSerializer):
     class Meta:
         model = TravelContract
         fields = '__all__'
+        read_only_fields = ('total_package_price', 'status')
 
     def validate(self, attrs):
         instance = getattr(self, 'instance', None)
@@ -47,6 +58,18 @@ class TravelContractSerializer(serializers.ModelSerializer):
         contract_signed_date = attrs.get(
             'contract_signed_date',
             getattr(instance, 'contract_signed_date', None),
+        )
+        has_flight_included = attrs.get(
+            'has_flight_included',
+            getattr(instance, 'has_flight_included', False),
+        )
+        has_airport_transfer = attrs.get(
+            'has_airport_transfer',
+            getattr(instance, 'has_airport_transfer', False),
+        )
+        airport_transfer_price = attrs.get(
+            'airport_transfer_price',
+            getattr(instance, 'airport_transfer_price', Decimal('0.00')),
         )
 
         if departure_date and return_date and return_date < departure_date:
@@ -62,7 +85,30 @@ class TravelContractSerializer(serializers.ModelSerializer):
                 {'contract_signed_date': 'Contract signed date cannot be after departure date.'}
             )
 
+        if has_airport_transfer and not has_flight_included:
+            raise serializers.ValidationError(
+                {'has_airport_transfer': 'Airport transfer can only be enabled when flight is included.'}
+            )
+
+        if airport_transfer_price is not None and airport_transfer_price < Decimal('0.00'):
+            raise serializers.ValidationError(
+                {'airport_transfer_price': 'Airport transfer price cannot be negative.'}
+            )
+
+        if not has_airport_transfer:
+            attrs['airport_transfer_price'] = Decimal('0.00')
+
         return attrs
+
+    def create(self, validated_data):
+        instance = super().create(validated_data)
+        instance.sync_total_from_travelers()
+        return instance
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        instance.sync_total_from_travelers()
+        return instance
 
 class TravelerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -92,64 +138,17 @@ class TravelRequirementsSerializer(serializers.ModelSerializer):
                 {'requirement_type': 'This requirement type already exists for the selected contract.'}
             )
 
-        return attrs
-
-class SupplierPaymentsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SupplierPayments
-        fields = '__all__'
-
-    def validate(self, attrs):
-        instance = getattr(self, 'instance', None)
-        booked_activity = attrs.get('booked_activity', getattr(instance, 'booked_activity', None))
-        supplier = attrs.get('supplier', getattr(instance, 'supplier', None))
-        amount_paid = attrs.get('amount_paid', getattr(instance, 'amount_paid', None))
-        payment_date = attrs.get('payment_date', getattr(instance, 'payment_date', None))
-
-        if amount_paid is not None and amount_paid <= Decimal('0.00'):
-            raise serializers.ValidationError({'amount_paid': 'Supplier payment amount must be greater than zero.'})
-
-        if booked_activity and supplier and booked_activity.activity.supplier_id and supplier.id != booked_activity.activity.supplier_id:
-            raise serializers.ValidationError({'supplier': 'Supplier must match the booked activity supplier.'})
-
-        if booked_activity and payment_date and payment_date < booked_activity.contract.contract_signed_date:
-            raise serializers.ValidationError(
-                {'payment_date': 'Supplier payment date cannot be before contract signed date.'}
-            )
-
-        if booked_activity and amount_paid is not None:
-            queryset = SupplierPayments.objects.filter(booked_activity=booked_activity)
-            if instance:
-                queryset = queryset.exclude(pk=instance.pk)
-
-            already_paid = sum(payment.amount_paid for payment in queryset)
-            if already_paid + amount_paid > booked_activity.total_price:
-                raise serializers.ValidationError(
-                    {'amount_paid': 'Supplier payments cannot exceed the booked activity total price.'}
-                )
+        status_value = attrs.get('status', getattr(self.instance, 'status', 'pending'))
+        if status_value in ('submitted', 'approved'):
+            attrs['is_submitted'] = True
+        elif status_value in ('pending', 'rejected'):
+            attrs['is_submitted'] = False
 
         return attrs
 
-class SuppliersSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Suppliers
-        fields = '__all__'
 
-    def validate(self, attrs):
-        instance = getattr(self, 'instance', None)
-        phone = attrs.get('phone', getattr(instance, 'phone', None))
-        email = attrs.get('email', getattr(instance, 'email', None))
 
-        if not phone and not email:
-            raise serializers.ValidationError('Provide at least one supplier contact: phone or email.')
 
-        if phone:
-            cleaned = phone.strip()
-            if len(cleaned) < 7 or len(cleaned) > 15:
-                raise serializers.ValidationError({'phone': 'Phone number must be between 7 and 15 characters.'})
-            attrs['phone'] = cleaned
-
-        return attrs
 
 # class BookedSuppliersSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -160,6 +159,21 @@ class ClientPaymentsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientPayments
         fields = '__all__'
+        extra_kwargs = {
+            'payment_number': {'required': False, 'allow_null': True},
+        }
+
+    def create(self, validated_data):
+        contract = validated_data['contract']
+        if validated_data.get('payment_number') in (None, 0):
+            latest_payment_number = (
+                ClientPayments.objects.filter(contract=contract)
+                .order_by('-payment_number')
+                .values_list('payment_number', flat=True)
+                .first()
+            ) or 0
+            validated_data['payment_number'] = latest_payment_number + 1
+        return super().create(validated_data)
 
     def validate(self, attrs):
         instance = getattr(self, 'instance', None)
@@ -233,44 +247,14 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'created_at')
 
     def create(self, validated_data):
-        request = self.context.get('request')
         password = validated_data.pop('password')
-        role = validated_data.get('role', 'viewer')
+        role = validated_data.pop('role', 'viewer')
         user = get_user_model().objects.create_user(
             password=password,
             role=role,
-            is_active=False,
+            is_active=True,
             **validated_data,
         )
-
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = default_token_generator.make_token(user)
-
-        if request:
-            verify_url = request.build_absolute_uri(f'/api/auth/verify-email/?uid={uid}&token={token}')
-        else:
-            verify_url = f'http://127.0.0.1:8000/api/auth/verify-email/?uid={uid}&token={token}'
-
-        subject = "Verify your LED Travel and Tours account"
-        message = (
-            "Your account was created by an administrator.\n\n"
-            "Please verify your email to activate your account:\n"
-            f"{verify_url}\n\n"
-            "If you did not expect this, contact support."
-        )
-
-        try:
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
-            )
-        except Exception as email_error:
-            user.delete()
-            raise ValidationError({'email': f'Failed to send verification email: {email_error}'})
-
         return user
 
 
@@ -279,6 +263,40 @@ class AdminUserManageSerializer(serializers.ModelSerializer):
         model = get_user_model()
         fields = ('id', 'email', 'role', 'is_active', 'created_at')
         read_only_fields = ('id', 'created_at')
+
+
+class AccommodationBookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AccommodationBooking
+        fields = '__all__'
+        read_only_fields = ('status',)
+
+    def validate(self, attrs):
+        check_in = attrs.get('check_in_date', getattr(self.instance, 'check_in_date', None))
+        check_out = attrs.get('check_out_date', getattr(self.instance, 'check_out_date', None))
+
+        if check_in and check_out and check_out < check_in:
+            raise serializers.ValidationError({'check_out_date': 'Check-out date cannot be before check-in date.'})
+
+        return attrs
+
+
+class FlightBookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FlightBooking
+        fields = '__all__'
+
+    def validate(self, attrs):
+        return attrs
+
+
+class AirportTransferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AirportTransfer
+        fields = '__all__'
+
+    def validate(self, attrs):
+        return attrs
 
 
 class ActivityBookedClientsSerializer(serializers.ModelSerializer):
@@ -311,18 +329,5 @@ class ActivityTemplateSerializer(serializers.ModelSerializer):
 class BookedActivitySerializer(serializers.ModelSerializer):
     class Meta:
         model = BookedActivity
-        fields = '__all__'
-
-    def validate(self, attrs):
-        quantity_adult = attrs.get('quantity_adult', 0)
-        quantity_child = attrs.get('quantity_child', 0)
-        quantity_infant = attrs.get('quantity_infant', 0)
-
-        if quantity_adult + quantity_child + quantity_infant <= 0:
-            raise serializers.ValidationError(
-                {'quantity_adult': 'At least one traveler quantity must be greater than zero.'}
-            )
-
-        return attrs
-
-
+        fields = ('id', 'contract', 'activity', 'supplier_name', 'is_supplier_paid', 'total_price')
+        read_only_fields = ('total_price',)
