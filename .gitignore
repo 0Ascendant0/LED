@@ -8,3 +8,4 @@ db.sqlite3
 media/
 .vscode/
 Thumbs.db
+API_ENDPOINTS_AND_SUMMARY.txt
