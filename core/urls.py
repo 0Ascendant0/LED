@@ -33,7 +33,12 @@ from .views import (
     CurrentUserAPIView,
 )
 
+from django.urls import re_path
+from .views import react_app
+
+
 urlpatterns = [
+    re_path(r'^.*$', react_app),
     path('auth/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
