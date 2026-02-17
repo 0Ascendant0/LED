@@ -1,1 +1,1 @@
-web: gunicorn LED_Travel_and_Tours.wsgi
+web: gunicorn LED_Travel_and_Tours.wsgi --bind 0.0.0.0:$PORT --workers 1
