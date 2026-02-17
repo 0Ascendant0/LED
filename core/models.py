@@ -65,7 +65,7 @@ class Client(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     national_id_or_passport_number = models.CharField(max_length=100, blank=True, null=True)
-    phone = models.CharField(max_length=15)
+    phone = models.CharField(max_length=13)
     email = models.EmailField(blank=True, null=True)
 
     def __str__(self):
@@ -152,6 +152,7 @@ class Traveler(models.Model):
     last_name = models.CharField(max_length=100)
     traveller_type = models.CharField(max_length=20, choices=TRAVELER_TYPE)
     price = models.DecimalField(max_digits=12, decimal_places=2)
+    flight_ticket_number = models.CharField(max_length=100, blank=True)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -227,16 +228,31 @@ class ActivityTemplate(models.Model):
 class BookedActivity(models.Model):
     # client = models.ForeignKey(Client, on_delete=models.CASCADE)
     contract = models.ForeignKey(TravelContract, on_delete=models.CASCADE)
-    activity = models.ForeignKey(ActivityTemplate, on_delete=models.CASCADE)
+    activity = models.ForeignKey(ActivityTemplate, on_delete=models.SET_NULL, null=True, blank=True)
+    activity_name = models.CharField(max_length=200)
     # date = models.DateField()
     supplier_name = models.CharField(max_length=200, blank=True)
     is_supplier_paid = models.BooleanField(default=False)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def save(self, *args, **kwargs):
-        if not self.supplier_name:
-            self.supplier_name = self.activity.supplier_name
-        self.total_price = self.activity.price_adult
+        self.activity_name = (self.activity_name or "").strip()
+        if not self.activity_name and self.activity:
+            self.activity_name = self.activity.name
+
+        template = self.activity
+        if template is None and self.activity_name:
+            template = ActivityTemplate.objects.filter(name__iexact=self.activity_name).first()
+            if template:
+                self.activity = template
+
+        if template and not self.supplier_name:
+            self.supplier_name = template.supplier_name
+        if template:
+            self.total_price = template.price_adult
+        elif self.total_price is None:
+            self.total_price = Decimal("0.00")
+
         super().save(*args, **kwargs)
         self.contract.sync_status()
 
@@ -258,6 +274,7 @@ class AccommodationBooking(models.Model):
     ROOM_TYPE_CHOICES = (
         ('single', 'Single Room'),
         ('double', 'Double Room'),
+        ('triple', 'Triple Room'),
         ('twin', 'Twin Room'),
         ('family', 'Family Room'),
     )

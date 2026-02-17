@@ -17,6 +17,11 @@ from .models import (
     TravelRequirements,
 )
 
+
+def normalize_label(value):
+    return " ".join(str(value or "").strip().split()).title()
+
+
 class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
@@ -37,8 +42,8 @@ class ClientSerializer(serializers.ModelSerializer):
 
     def validate_phone(self, value):
         cleaned = ''.join(value.split())
-        if len(cleaned) < 7 or len(cleaned) > 15:
-            raise serializers.ValidationError('Phone number must be between 7 and 15 characters.')
+        if len(cleaned) < 7 or len(cleaned) > 13:
+            raise serializers.ValidationError('Phone number must be between 7 and 13 characters.')
         return cleaned
 
 class TravelContractSerializer(serializers.ModelSerializer):
@@ -49,6 +54,11 @@ class TravelContractSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         instance = getattr(self, 'instance', None)
+        destination = attrs.get('destination', getattr(instance, 'destination', ''))
+        normalized_destination = normalize_label(destination)
+        if not normalized_destination:
+            raise serializers.ValidationError({'destination': 'Destination is required.'})
+        attrs['destination'] = normalized_destination
         departure_date = attrs.get('departure_date', getattr(instance, 'departure_date', None))
         return_date = attrs.get('return_date', getattr(instance, 'return_date', None))
         final_payment_due_date = attrs.get(
@@ -83,11 +93,6 @@ class TravelContractSerializer(serializers.ModelSerializer):
         if departure_date and contract_signed_date and contract_signed_date > departure_date:
             raise serializers.ValidationError(
                 {'contract_signed_date': 'Contract signed date cannot be after departure date.'}
-            )
-
-        if has_airport_transfer and not has_flight_included:
-            raise serializers.ValidationError(
-                {'has_airport_transfer': 'Airport transfer can only be enabled when flight is included.'}
             )
 
         if airport_transfer_price is not None and airport_transfer_price < Decimal('0.00'):
@@ -259,10 +264,20 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
 
 
 class AdminUserManageSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8, required=False, allow_blank=True)
+
     class Meta:
         model = get_user_model()
-        fields = ('id', 'email', 'role', 'is_active', 'created_at')
+        fields = ('id', 'email', 'role', 'is_active', 'password', 'created_at')
         read_only_fields = ('id', 'created_at')
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        instance = super().update(instance, validated_data)
+        if password:
+            instance.set_password(password)
+            instance.save(update_fields=['password'])
+        return instance
 
 
 class AccommodationBookingSerializer(serializers.ModelSerializer):
@@ -329,5 +344,13 @@ class ActivityTemplateSerializer(serializers.ModelSerializer):
 class BookedActivitySerializer(serializers.ModelSerializer):
     class Meta:
         model = BookedActivity
-        fields = ('id', 'contract', 'activity', 'supplier_name', 'is_supplier_paid', 'total_price')
+        fields = ('id', 'contract', 'activity_name', 'supplier_name', 'is_supplier_paid', 'total_price')
         read_only_fields = ('total_price',)
+
+    def validate(self, attrs):
+        activity_name = attrs.get('activity_name', getattr(self.instance, 'activity_name', ''))
+        normalized_name = normalize_label(activity_name)
+        if not normalized_name:
+            raise serializers.ValidationError({'activity_name': 'Activity name is required.'})
+        attrs['activity_name'] = normalized_name
+        return attrs

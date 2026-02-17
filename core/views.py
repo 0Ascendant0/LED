@@ -27,7 +27,6 @@ from .serializers import (
     AdminUserCreateSerializer,
     AdminUserManageSerializer,
     AirportTransferSerializer,
-    ActivityBookedClientsSerializer,
     ActivityTemplateSerializer,
     BookedActivitySerializer,
     FlightBookingSerializer,
@@ -90,13 +89,18 @@ class ClientSupplierChecklistAPIView(APIView):
                 'is_editable': True,
             })
 
-        for booking in BookedActivity.objects.filter(contract_id__in=contract_ids):
+        for booking in BookedActivity.objects.select_related('activity').filter(contract_id__in=contract_ids):
+            activity_label = (
+                (booking.activity_name or '').strip()
+                or (booking.activity.name if booking.activity else '')
+                or 'N/A'
+            )
             items.append({
                 'entity_type': 'activity',
                 'entity_id': booking.id,
                 'contract_id': str(booking.contract_id),
                 'supplier_name': booking.supplier_name,
-                'label': f'Activity - {booking.supplier_name or "N/A"}',
+                'label': f'Activity - {activity_label}',
                 'is_paid': booking.is_supplier_paid,
                 'is_editable': True,
             })
@@ -435,10 +439,43 @@ class VerifyEmailAPIView(APIView):
         return Response({'detail': 'Email verified. Account is now active.'}, status=status.HTTP_200_OK)
 
 
-class ActivityBookingsAPIView(generics.ListAPIView):
-    queryset = ActivityTemplate.objects.prefetch_related('bookedactivity_set__contract__client')
-    serializer_class = ActivityBookedClientsSerializer
+class ActivityBookingsAPIView(APIView):
     permission_classes = [IsAdminOrReadOnly]
+
+    def get(self, request):
+        grouped = {}
+        bookings = BookedActivity.objects.select_related('contract__client').all()
+
+        for booking in bookings:
+            name = (booking.activity_name or '').strip() or 'Unnamed Activity'
+            key = name.lower()
+            if key not in grouped:
+                grouped[key] = {
+                    'id': key,
+                    'name': name,
+                    'clients': [],
+                    '_client_ids': set(),
+                }
+
+            client = booking.contract.client
+            if client.id in grouped[key]['_client_ids']:
+                continue
+
+            grouped[key]['_client_ids'].add(client.id)
+            grouped[key]['clients'].append({
+                'id': client.id,
+                'first_name': client.first_name,
+                'last_name': client.last_name,
+                'email': client.email,
+                'phone': client.phone,
+            })
+
+        payload = []
+        for item in grouped.values():
+            item.pop('_client_ids', None)
+            payload.append(item)
+
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class ActivityTemplateListAPIView(generics.ListCreateAPIView):
