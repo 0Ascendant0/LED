@@ -6,7 +6,7 @@ def create_default_admin_user(apps, schema_editor):
     CustomUser = apps.get_model("core", "CustomUser")
 
     user, _ = CustomUser.objects.get_or_create(
-        email="admin",
+        email="admin@led.com",
         defaults={
             "role": "admin",
             "is_active": True,
