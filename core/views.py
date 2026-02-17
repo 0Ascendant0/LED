@@ -41,6 +41,7 @@ from .serializers import (
 from .permissions import IsAdmin, IsAdminOrReadOnly
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.views.generic import TemplateView
 
 def health(request):
     return JsonResponse({"status": "ok"})
