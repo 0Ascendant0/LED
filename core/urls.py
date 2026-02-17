@@ -34,11 +34,12 @@ from .views import (
 )
 
 from django.urls import re_path
-from .views import react_app
+from .views import react_app, health
 
 
 urlpatterns = [
     re_path(r'^.*$', react_app),
+    path("health/", health),
     path('auth/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),

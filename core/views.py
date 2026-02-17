@@ -40,6 +40,10 @@ from .serializers import (
 )
 from .permissions import IsAdmin, IsAdminOrReadOnly
 from django.shortcuts import render
+from django.http import JsonResponse
+
+def health(request):
+    return JsonResponse({"status": "ok"})
 
 def react_app(request):
     return render(request, "index.html")
