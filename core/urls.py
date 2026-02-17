@@ -38,7 +38,6 @@ from .views import react_app, health
 
 
 urlpatterns = [
-    re_path(r'^.*$', react_app),
     path("health/", health),
     path('auth/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
